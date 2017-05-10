@@ -1,0 +1,746 @@
+''' Ordinary Differential Equations'''
+
+from sympy import Symbol , dsolve , Function , Derivative , Eq
+
+y = Function ("y")      # The solution to the ODE will be n the form y = 'something'
+x = Symbol ('x')
+y_ = Derivative (y(x), x)     # 'Creating' dy/dx
+print(dsolve (y_ + 5*y(x), y(x)))      # Solve the ODE: (dy/dx) + 5y = 0 ; the solution is C*e^(-5x)
+
+
+z = dsolve (y_ + 5*y(x), y(x))
+print(z)         # y(x) == C1*exp(-5*x)
+print(z.rhs)     # C1*exp(-5*x)
+C1 = Symbol ('C1')
+y3 = z.subs({C1: 2, x: 3})     # substitutes C1 == 2 and x == 3
+print(y3)                      # y(3) == 2*exp(-15)
+print(y3.evalf(20))            # y(3) == 6.1180464100365157674e-7
+# We use the '.evalf() to evaluate the solutions when it is a float, and the 20 inside the evalf() means that the solution is approximated to about 20 digits
+
+# Example involving 2nd order linear ODE:-
+
+from sympy import Symbol , dsolve , Function , Derivative , Eq
+
+x = Symbol('x')
+f = Function ('f')
+F_PrimePrime = Derivative(f(x), x, 2)
+print(dsolve(F_PrimePrime + 5*f(x), f(x)))
+
+
+''' ODE's: Euler's Method '''
+
+# Assume ODE can be written in the form df/dt = g(y, t)
+
+''' Notation:-
+    t : time
+    dt : time step (the constant difference between two consecutive time values)
+    y : population 
+    r : rate of change
+    df/dt : the first time derivative of f
+    g : the rate function 
+    T : a sequence of times t where we estimate f(t)
+    F : a sequence of estimates for f(t) '''
+
+''' Pseudo-code Implementation:-
+    - Set initial conditions: y(t = 0) = yo
+ˆ    - Specify the time step (dt) and the stop time (tf )
+ˆ    - Iterate while t < tf:-
+        – Evaluate the rate function at current time: r = g(y, t)
+        – Estimate the future: y(t + dt) = y(t) + r*(dt)
+        – Increment the time: t = t + (dt) '''
+
+# Example: df/dt = a*f(t) * (1 + sin(b*t)) ; which can also be expressed as r = a*y*(1 + sin(b*t)) 
+
+import math
+import matplotlib.pyplot as plt
+
+y0 = 2.0    # Initial condition
+dt = 1.0    # Time step is 1.0 days
+tf = 364.0  # Final time is 364.0 days
+
+tt = []     # Empty list to increment time values to
+yy = []     # Empty list to increment solution to
+
+tt.append(0.0)   # Append initial time
+yy.append(y0)    # Append initial condition
+
+# Values of parameters a & b:-
+a = 0.01
+b = 2.0*math.pi/365.0
+
+while tt[-1] <= tf:  # While the last time value in the list tt is less than or equal to 364.0 (the value of tf)
+    r = a*yy[-1]*(1 + math.sin(b*tt[-1]))   # Evaluating the rate function at the current time (the current time is tt[-1])
+    yy.append(yy[-1] + r*dt)                # Estimating the future solutions
+    tt.append(tt[-1] + dt)                  # Incrementing time (since we are going to estimate the future solutions)
+ 
+ # We are going to plot the solution    
+plt.figure()
+plt.plot(tt, yy)
+plt.xlabel('Time in days')
+plt.ylabel('Population of rats')
+plt.title('Euler Solution')
+plt.show()
+    
+    
+''' Initial Value Problems: Runge-Kutta method '''
+
+# To understand Runge-Kutta method mathematically, consider the following:-
+# Use the second-order Runge–Kutta method to integrate: y' = siny , y(0) = 1 ; from x = 0 to x = 0.5 in steps of h = 0.1
+
+# Given y' = siny, let F(x, y) = y' = siny
+# K0 = h*F(x, y) = 0.1siny ; K1 = h*F(x + h/2.0, y + K0/2.0) = 0.1*sin(y + K0/2.0) ; there are no x's in the given differential equation
+# Moreover, y(x + h) = y(x) + K1 (when using 2nd order Runge-Kutta) 
+
+# Since y(0) = 1, K0 = 0.1*sin(1) = 0.0841
+#                 K1 = 0.1*sin(1 + (0.0841/2)) = 0.0863
+#                 Now y(0 + 0.1) = y(0.1) = y(0) + K1 = 1 + 0.0863 = 1.0863
+
+# Since y(0.1) = 1.0863 , K0 = 0.1*sin(1.0863) = 0.0885
+#                         K1 = 0.1*sin(1.0863 + (0.0885/2)) = 0.0905
+#                         So, y(0.1 + 0.1) = y(0.2) = y(0.1) + K1 = 1.0863 + 0.0905 = 1.1768
+
+# Keep repeating until you reach y(0.5) 
+
+
+# To solve the IVP: {y}’ = {F(x,{y})}, where y and F are matrices:- 
+from numpy import array
+def INTEGRATE(F, x, y, xStop ,h):
+    
+    ''' x, y : initial conditions
+        xStop : terminal value of x
+        h : increment of x used in integration
+        F : user-supplied function that returns the array F(x, y) = {y’[0],y’[1],...,y’[n-1]}
+    '''
+    def run_kut4(F, x, y, h):
+        K0 = h*F(x, y)
+        K1 = h*F(x + h/2.0, y + K0/2.0)
+        K2 = h*F(x + h/2.0, y + K1/2.0)
+        K3 = h*F(x + h, y + K2)
+        return (K0 + 2.0*K1 + 2.0*K2 + K3)/6.0
+    X = []
+    Y = []
+    X.append(x)
+    Y.append(y)
+    while x < xStop:
+        h = min(h, xStop - x)
+        y = y + run_kut4(F, x, y, h)  # Note that y(x + h) = y(x) + (1/6)*(K0 + 2K1 + 2K2 + K3) 
+        x = x + h                     # We increment x by h 
+        X.append(x)
+        Y.append(y)
+    return array(X),array(Y)
+
+
+''' printSoln(X, Y, freq).
+Prints X and Y returned from the differential
+equation solvers using printput frequency ’freq’.
+freq = n prints every nth step.
+freq = 0 prints initial and final values only.
+'''
+def printSoln(X, Y, freq):
+        def printHead(n):
+            print("\n x ")
+            for i in range (n):
+                print("y[",i,"]")
+            print
+        def printLine(x, y, n):
+            print("%13.4e"% x)
+            for i in range (n):
+                print("%13.4e"% y[i])
+            print
+        m = len(Y)
+        try: n = len(Y[0])
+        except TypeError: n = 1
+        if freq == 0: freq = m
+        printHead(n)
+        for i in range(0,m,freq):
+            printLine(X[i], Y[i], n)
+        if i != m - 1: printLine(X[m - 1], Y[m - 1], n)
+        
+# Ex: Solve using 4th Order Runge-Kutt from x = 0 to x = 2 in increments of h = 0.25:-
+#       y'' = −0.1y' − x ; y(0) = 0 ; y'(0) = 1
+
+from numpy import array, zeros
+def F(x,y):
+    F = zeros(2)
+    # Ley y0 = y and y1 = y'
+    F[0] = y[1]               # F[0] contains y0' (which is y')
+    F[1] = -0.1*y[1] - x      # F[1] contains y1' (which is y'')
+    return F
+x = 0.0                       # Start of integration
+xStop = 2.0                   # End of integration
+y = array([0.0, 1.0])         # Initial values of {y}
+h = 0.25                      # Step size
+freq = 1                      # Printout frequency
+X, Y = INTEGRATE(F, x, y, xStop, h)
+printSoln(X, Y, freq)
+# In the output, the first value is for x, the second for y[0], the third for y[1], and so on. 
+
+
+''' Adaptive Runge-Kutta Method '''
+
+# Some useful Runge–Kutta Fehlberg formulas:-
+
+# y_5(x + h) = y(x) + (summation from i = 0 to i = 5) (Ci * Ki)   (5th order formula)
+# y_4(x + h) = y(x) + (summation from i = 0 to i = 5) (Di * Ki)   (4th order formula)
+
+# Note that C0 = 37/378, C1 = 0, C2 = 250/621, C3 = 125/594, C4 = 0, & C5 = 512/1771
+# Note that D1 = 2825/27648, D1 = 0, D2 = 18575/48384, D3 = 13525/55296, D4 = 277/14336, & D5 = 1/4
+
+# To estimate the truncation error, E(h) = y_5(x + h) - y_4(x + h) = (summation from i = 0 to i = 5) (Ci - Di)*Ki
+
+# Code example:-
+
+''' X, Y = integrateARK(F, x, y, xStop, h, tol=1.0e-6).
+    Adaptive Runge--Kutta method for solving the initial value problem {y}’ = {F(x,{y})}, where {y} = {y[0],y[1],...y[n-1]}.
+    x, y : initial conditions
+    xStop : terminal value of x
+    h : initial increment of x used in integration
+    tol : per-step error tolerance
+    F : user-supplied function that returns the array F(x, y) = {y’[0],y’[1],...,y’[n-1]} '''
+ 
+from numpy import array, sum, zeros
+import math 
+
+def integrateARK(F ,x, y, xStop, h, tol=1.0e-6):
+    def run_kut5(F, x, y, h):
+    # Runge-Kutta Fehlberg formulas
+        C = array([37/378, 0, 250/621, 125/594, 0, 512/1771])
+        D = array([2825/27648, 0, 18575/48384, 13525/55296, 277/14336, 1/4])
+        n = len(y)
+        K = zeros((6,n))    # We want to make K a matrix containing 6 rows and n columns 
+        K[0] = h*F(x,y)
+        K[1] = h*F(x + 1./5*h, y + 1./5*K[0])
+        K[2] = h*F(x + 3./10*h, y + 3./40*K[0] + 9./40*K[1])
+        K[3] = h*F(x + 3./5*h, y + 3./10*K[0]- 9./10*K[1] + 6./5*K[2])
+        K[4] = h*F(x + h, y - 11./54*K[0] + 5./2*K[1] - 70./27*K[2] + 35./27*K[3])
+        K[5] = h*F(x + 7./8*h, y + 1631./55296*K[0] + 175./512*K[1] + 575./13824*K[2] + 44275./110592*K[3] + 253./4096*K[4])
+        
+        # Initialize arrays {dy} and {E}
+        E = zeros(n)      # Per-step error
+        dy = zeros(n)     # Solution increment 
+        
+        # Compute solution increment {dy} and per-step error {E}
+        for i in range(6):
+            dy = dy + C[i]*K[i]
+            E = E + (C[i] - D[i])*K[i]
+            
+        # Compute RMS error e
+        e = math.sqrt(sum(E**2)/n)
+        return dy, e
+        
+    X = []          # Empty list
+    Y = []          # Empty list
+    X.append(x)     # Append initial x value 
+    Y.append(y)     # Append initial y value 
+    stopper = 0     # Integration stopper(0 = off, 1 = on)
+    
+    for i in range(10000):
+        dy, e = run_kut5(F, x, y, h)
+        
+    # Accept integration step if error e is within tolerance
+        if e <= tol:
+            y = y + dy
+            x = x + h
+            X.append(x)
+            Y.append(y)
+            # Stop if end of integration range is reached
+            if stopper == 1: 
+                break
+            
+        # Compute next step size
+        if e != 0.0:                        # If an RMS error exists 
+            hNext = 0.9*h*(tol/e)**0.2      # hNext is the new step size (new increment of x)
+                                            # h is the initial step size (initial increment of x) 
+        else:                               # If an RMS error does not exist 
+            hNext = h                       # The new increment of x is equal to the initial increment of x 
+            
+        # Check if next step is the last one; if so, adjust h
+        if (h > 0.0) == ((x + hNext) >= xStop):
+            hNext = xStop - x
+            stopper = 1
+        h = hNext
+    return array(X), array(Y)
+
+
+# Example:-
+
+''' Use the Adaptive Runge-Kutta method to solve the differential equation: m*y'' = -m*g + a*(v^2)*e^(-b*y), where y is the elevation of the object in meters, v is the velocity of the object in m/ s,  g = 9.80665 m/ s^2, m = 114 kg, a = 7.45 kg/ m, and b = 10.53*10^(-5) m^-1. 
+Using the Adaptive RUnge-Kutta method, you are required to determine the object's elevation and speed after a 10 s fall ''' 
+ 
+# Re-wrtie the differential equation: y'' = -g + (a/ m)*(v^2)*e^(-b*y)
+#                                     y'' = -9.80665 + (7.45/114)*((y')^2)*exp((-10.53*10^(-5))*y)
+# The initial conditions are y(0) = 900, and y'(0) = 0
+
+# Ley y0 = y, and y1 = y'
+
+# The code is ...
+
+from numpy import array, zeros
+import math 
+
+def F(x, y):
+    F = zeros(2)
+    F[0] = y[1]
+    F[1] = -9.80665 + 65.351e-3 * y[1]**2 * math.exp(-10.53e-5*y[0])
+    return F
+    
+x = 0.0
+xStop = 10.0    
+y = array([9000, 0.0])  # Contains y(0) and y'(0) 
+h = 0.5 
+freq = 1
+X, Y = integrateARK(F, x, y, xStop, h, 1.0e-2)     # We specified a per-step error tolerance of 10e-2 
+printSoln(X, Y, freq)
+# In the output, the first value is for x, the second for y[0], the third for y[1], and so on.
+
+''' Bulirsch–Stoer Method '''
+
+# Midpoint Method & Richardson Extrapolation:-
+
+# Midpoint formula: y(x + h) = y(x - h) + 2*h*F(x, y(x))
+
+# Richardson Extrapolation formula: y_better = (4*y_0.5h - y_h)/ 3
+
+
+''' yStop = integrate (F, x, y, xStop, tol=1.0e-6)
+    Modified midpoint method for solving the initial value problem y’ = F{x, y}
+    x, y = initial conditions
+    xStop = terminal value of x
+    yStop = y(xStop)
+    F = user-supplied function that returns the array F(x, y) = {y’[0],y’[1],...,y’[n-1]}
+'''
+
+from numpy import zeros, float, sum
+import math
+
+def integrate_BulirschStoeir(F, x, y, xStop, tol):
+    def midpoint(F, x, y, xStop, nSteps):
+        h = (xStop - x)/ nSteps
+        y0 = y
+        y1 = y0 + h*F(x, y0)
+        for i in range(nSteps-1):
+            x = x + h
+            y2 = y0 + 2.0*h*F(x, y1)
+            # Since the formula is y(x + h) = y(x - h) + 2*h*F(x, y(x)), so y(x + h) denotes y2, y(x - h) denotes y0, and y(x) denotes y1
+            
+            y0 = y1
+            y1 = y2
+            
+        return 0.5*(y1 + y0 + h*F(x, y2))
+    
+    def richardson(r, k):
+        for j in range(k-1,0,-1):
+            const = (k/(k - 1.0))**(2.0*(k-j))
+            r[j] = (const*r[j+1] - r[j])/(const - 1.0)
+        return     
+        kMax = 51
+        n = len(y)
+        r = zeros((kMax, n), dtype=float)
+        
+        # Start with two integration steps
+        nSteps = 2
+        r[1] = midpoint(F, x, y, xStop, nSteps)
+        r_old = r[1].copy()
+        
+        # Increase the number of integration points by 2 and refine result by Richardson extrapolation
+        for k in range(2,kMax):
+            nSteps = 2*k
+            r[k] = midpoint(F, x, y, xStop, nSteps)
+            richardson(r,k)
+            
+            # Compute RMS change in solution
+            e = sqrt(sum((r[1] - r_old)**2)/n)
+            
+            # Check for convergence
+            if e < tol: 
+                return r[1]
+            r_old = r[1].copy()
+        print("Midpoint method did not converge")
+        
+# Bulirsch-Stoer Algorithm:- 
+
+''' X, Y = bulStoer(F, x, y, xStop, H, tol=1.0e-6).
+    Simplified Bulirsch-Stoer method for solving the
+    initial value problem {y}’ = {F(x,{y})}, where {y} = {y[0],y[1],...y[n-1]}
+    x, y = initial conditions
+    xStop = terminal value of x
+    H = increment of x at which results are stored
+    F = user-supplied function that returns the array F(x,y) = {y’[0],y’[1],...,y’[n-1]} '''
+
+from numpy import array
+
+def bulStoer(F, x, y, xStop, H, tol=1.0e-6):
+    X = []
+    Y = []
+    X.append(x)
+    Y.append(y)
+    while x < xStop:
+        H = min(H,xStop - x)
+        y = integrate_BulirschStoeir(F, x, y, x + H, tol)   # Midpoint method
+        x = x + H
+        X.append(x)
+        Y.append(y)
+    return array(X), array(Y)
+
+''' Example: Compute the solution of the initial value problem:-
+    y' = siny ; y(0) = 1
+    at x = 0.5 with the midpoint formulas using n = 2 and n = 4, followed by Richardson extrapolation ''' 
+    
+# For n = 2, h = (0.5 - 0)/2 = 0.25
+# y1 = y0 + h*f0 = 1 + 0.25*sin(1) = 1.210368 ; Note that f0 = y(0) = 1
+# y2 = y0 + 2*h*f1 = 1 + 2*0.25*sin(1.210368) = 1.467873
+# y_h(0.5) = 0.5*(y1 + y0 + h*f2) = 1.463459
+
+# For n = 4, h = (0.5 - 0)/4 = 0.125
+# y1 = y0 + h*f0 = 1 + 0.125*sin(1.0) = 1.105184
+# y2 = y0 + 2*h*f1 = 1 + 2*(0.125)*sin(1.105184) = 1.223387
+# y3 = y1 + 2*h*f2 = 1.105184 + 2*(0.125)*sin(1.223387) = 1.340248
+# y4 = y2 + 2*h*f3 = 1.223387 + 2*(0.125)*sin(1.340248) = 1.466772
+# y_0.5h(0.5) = 0.5*(y4 + y3 + h*f4) = 1.465672
+
+# Applying Richardson Extrapolation:-
+# y(0.5) = (4*y_0.5h(0.5) - y_h(0.5))/ 3 = 1.466410
+
+
+''' Example: The differential equations governing the loop current i and the charge q on the capacitor of the electric circuit shown are:-
+    L*(di/dt) + R*i + (q/C) = E(t)  ;   dq/dt = i
+    If the applied voltage E is suddenly increased from zero to 9 V for the first 10 seconds. Use R = 1.0 ohm, L = 2 H, and C = 0.45 F ''' 
+    
+# Let y0 = q, & y1 = i
+# Let y0' = y1, & y1' = y'' = (−R*y1 − (y0/C) + E)/ L
+# The initial conditions are y0 = 0, & y1 = 0
+
+def printSoln(X, Y, freq):
+        def printHead(n):
+            print("\n x ")
+            for i in range (n):
+                print("y[",i,"]")
+            print
+        def printLine(x, y, n):
+            print("%13.4e"% x)
+            for i in range (n):
+                print("%13.4e"% y[i])
+            print
+        m = len(Y)
+        try: n = len(Y[0])
+        except TypeError: n = 1
+        if freq == 0: freq = m
+        printHead(n)
+        for i in range(0,m,freq):
+            printLine(X[i], Y[i], n)
+        if i != m - 1: printLine(X[m - 1], Y[m - 1], n)
+        
+# Code:-
+
+from numpy import array, zeros
+
+def F(x, y):
+    F = zeros(2)
+    F[0] = y[1]
+    F[1] =(-y[1] - (y[0]/0.45) + 9.0)/2.0
+    return F
+
+x = 0.0
+xStop = 10.0
+H = 0.5
+y = array([0.0, 0.0])
+freq = 1
+X, Y = bulStoer(F, x, y, xStop, H)
+printSoln(X, Y, freq)
+
+
+
+'''Two-Point Boundary Value Problems'''
+
+# Shooting Method:-
+
+# Ex: y'' = f(x, y, y') ; y(a) = c , y(b) = d
+
+# Transform the equation above into: y'' = f(x, y, y'), y(a) = c , y'(a) = u
+# Notice that: y(b) = g(u) ; y(b) is a function of u
+# So u is the roote of r(u) = g(u) - d = 0 ; r(u) is the boundary residual (difference between the computed and specified boundary value at x = b)
+
+# If we have a linear differential equation, use Linear Interpolation; here is the code for it:-
+
+def LinearInterpolation(f, x1, x2):
+    f1 = f(x1)
+    f2 = f(x2)
+    return x2 - f2*(x2 - x1)/(f2 - f1)      # The formula for Linear Interpolation
+    
+# Ridder's Method:-
+
+# Formula: x4 = x3 + (x3 - x1)*((abs(f(x1) - f(x2))*f(x3))/sqrt(f(x3)^2 - f(x1)*f(x2))
+# x3 is the point that lies halfway between x1 and x2    
+
+# Code for Ridder's Method:-
+
+import math
+
+def ridder(f, a, b, tol=1.0e-9):
+    fa = f(a)
+    if fa == 0.0: 
+        return a
+    fb = f(b)
+    if fb == 0.0: 
+        return b
+    if fa*fb > 0.0: 
+        print("Root is not bracketed")
+    for i in range(30):
+        c = 0.5*(a + b)     # c is x3 ins Ridder's formula previousely shown
+        fc = f(c)
+        s = math.sqrt(fc**2 - fa*fb)
+        if s == 0:
+            return None
+        dx = (c - a)*fc/s
+        if (fa - fb) < 0.0:
+            dx = -dx
+        x = c + dx
+        fx = f(x)
+        if i > 0:
+            if abs(x - xOld) < tol*max(abs(x),1.0):
+                return x
+        xOld = x
+        if fc*fx > 0.0:
+            if fa*fx < 0.0:
+                b = x
+                fb = fx
+            else:
+                a = x
+                fa = fx
+        else:
+            a = c
+            b = x
+            fa = fc
+            fb = fx
+    return None
+    print("Too many interations") 
+        
+        
+''' Example:-
+    Solve the boundary value problem: y'' + 3*y*y' = 0 ; y(0) = 0, y(2) = 1 '''
+    
+# Equivalent first order equations: y0' = y1, & y1' = -3*y0*y1      (Note that y = y0)
+
+# From x = 0 to x = 2, the value of y is assumed to increase from 0 to 1, so y is an increasing function implying that y' > 0 and y'' < 0
+
+# Code:-
+
+from numpy import zeros, array
+
+def InitialCondition(u):        # Initial values of [y, y']; use u if unknown
+    return array([0.0, u])      # One of the initial values of y is 0.0
+    
+def r(u):                       # Boundary condition residual
+    X , Y = INTEGRATE(F, xStart, InitialCondition(u), xStop, h)     # Will use 4th order Runge-Kutta for integration
+    y = Y[len(Y) - 1]
+    r = y[0] - 1.0              # Since we have a value of y = 1.0 (i.e: y(b) = d = 1.0) 
+    return r
+
+def F(x,y):                     # First-order differential equations 
+    F = zeros(2)
+    F[0] = y[1]
+    F[1] = -3.0*y[0]*y[1]
+    return F
+
+xStart = 0.0                    # Start of integration
+xStop = 2.0                     # End of integration
+u1 = 1.0                        # 1st trial value of unknown initial condition
+u2 = 2.0                        # 2nd trial value of unknown initial condition 
+h = 0.1                         # Step size
+freq = 2                        # Printout frequency
+u = ridder(r, u1, u2)           # Compute the correct initial condition
+X, Y = INTEGRATE(F, xStart, InitialCondition(u), xStop, h)
+printSoln(X, Y, freq)
+# In the output, the first value is for x, the second for y[0], the third for y[1], and so on. Note that y[0] is y & y[1] is y'
+
+
+# Example: Solve the 3rd order Boundary Value Problem: y''' = 2*y'' + 6*x*y; y(0) = 2, & y(5) = y'(5) = 0 
+
+# The 1st order equations are: y0' = y1, y1' = y2, & y2' = 2*y2 + 6*x*y0
+# Note that y is y0, y' is y1, and y'' is y2. Moreover, y2' is y''' 
+
+# For the code, we will use the Adaptive Runge-Kutta Method for integration, and we will use Linear Interpolation ...
+
+ 
+from numpy import zeros, array
+
+def InitialCondition(u):
+    return array([0.0, 0.0, u])     # Assume that the inital condition occurs at x = 5, so y(5) = y'(5) = 0 (two of the three
+                                    # boundary conditions are specified at the right end)
+def r(u):                           # Boundary condition residual
+    X, Y = integrateARK(F, xStart, InitialCondition(u), xStop, h)
+    y = Y[len(Y) - 1]
+    r = y[0] - 2.0                  # Since we have a valu of y = 2.0 (i.e: y(b) = d = 2.0)
+    return r
+    
+def F(x,y):                         # First-order differential equations
+    F = zeros(3)
+    F[0] = y[1]
+    F[1] = y[2]
+    F[2] = 2.0*y[2] + 6.0*x*y[0]
+    return F
+    
+xStart = 5.0                        # Start of integration
+xStop = 0.0                         # End of integration
+h = -0.1                            # initial step size 
+
+# We start integrating at x = 5 (previousely assumed that the initial condition occurs at x = 5) and we stop at x = 0 (we are given the values of y at x = 5 and x = 0). SInce we will traverse from x = 5 to x = 0, the step size h is negative (moving backwards) 
+
+u1 = 1.0                            # 1st trial value of unknown initial condition
+u2 = 2.0                            # 2nd trial value of unknown initial condition 
+freq = 2                            # printout frequency
+u = LinearInterpolation(r, u1, u2)
+X, Y = integrateARK(F, xStart, InitialCondition(u), xStop, h)
+printSoln(X, Y, freq)
+# In the output, the first value is for x, the second for y[0], the third for y[1], the fourth for y[2], and so on. Note that y[2] is y''
+
+
+# Higher Order Equations:-
+
+# 4th order differential equation form: y'''' = f(x, y, y', y'', y''')
+# Assume the boundary condition is in the form: y(a) = c1, y''(a) = c2, y(b) = d1, & y''(b) = d2
+
+# To solve this problem with the shooting method, we need four initial conditions at x = a, only two of which are specified.
+# Denoting the unknown initial values by u1 and u2, the set of initial conditions becomes ... 
+# y(a) = c1, y'(a) = u1, y''(a) = c2, & y'''(a) = u2
+
+# Now the computed boundary values at x = b depend on the choice of u1 and u2. We denote this dependence as ...
+# y(b) = g1(u1, u2), & y''(b) = g2(u1, u2)
+
+
+''' Finite Difference Method ''' 
+
+# Before starting the Finite Difference method, we should understand the lgorithm of the LU decomposition
+
+''' c,d,e = LUdecomp3(c,  d,e).
+    LU decomposition of tridiagonal matrix [c\d\e]. On output {c}, {d} and {e} are the diagonals of the decomposed matrix.
+    x = LUsolve(c, d, e, b)
+    Solves [c\d\e]{x} = {b}, where {c}, {d} and {e} are the vectors returned from LUdecomp3 '''
+    
+def LUdecomp3(c, d, e):               # The decomposition function 
+    n = len(d)
+    for k in range(1, n):
+        lam = c[k-1]/d[k-1]
+        d[k] = d[k] - lam*e[k-1]
+        c[k-1] = lam
+        # The lines above are the algorithm for the decomposition 
+    return c, d, e
+    
+def LUsolve3(c, d, e, b):
+    n = len(d)
+    for k in range(1, n):
+        b[k] = b[k] - c[k-1]*b[k-1]
+    b[n-1] = b[n-1]/d[n-1]
+    for k in range(n-2, -1, -1):
+        b[k] = (b[k] - e[k]*b[k+1])/d[k]
+    return b
+    # The lines above are the algorithm for the solution 
+    
+# Now, let's start with the finite difference method
+    
+# In the finite difference method we divide the range of integration (a, b) into m equal subintervals of length h each; however, there are
+# two points outside the interval (a, b)
+    
+# The derivatives of y in the differential equation are replaced by the finite difference expressions. It is common practice to use the
+# first central difference approximations ...
+    
+    # y_i ' = (y_i+1 - y_i-1)/(2h)
+    # y_i '' = (y_i-1 - 2y_i + y_i+1)/(h^2)
+    # etc ...
+    
+# The differential equation is enforced only at the mesh points (the points that lie within (a, b))
+    
+# As a result, the differential equations are replaced by m+ 1 simultaneous algebraic equations, the unknowns being y_i, i = 0, 1, ..., m
+    
+# If the differential equation is nonlinear, the algebraic equations will also be nonlinear and must be solved by the Newton–Raphson method
+    
+    
+# 2nd Order Differential Equations:-
+    
+# Consider the equation y'' = f (x, y, y') with the boundary conditions y(a) = c or y'(a) = c, & y(b) = d or y'(b) = d
+
+# Approximating the derivatives at the mesh points by finite differences, the problem becomes:-
+
+# y_i '' = (y_i-1 - 2y_i + y_i+1)/(h^2) = f(x_i, y_i, (y_i+1 - y_i-1)/(2h)), i = 0, 1, ..., m
+# y_0 = c or (y_1 - y_-1)/(2h) = c
+# y_m = d or (y_m+1 - y_m-1)/(2h) = d
+
+# Rewriting ...
+# y_-1 - 2y_0 + y_1 - (h^2)*f(x_0, y_0, (y_1 - y_-1/(2h))) = 0                                      Equation a
+# y_i-1 - 2y_i + y_i+1 - (h^2)*f(x_i, y_i, (y_i+1 - y_i-1/(2h))) = 0, i = 1, 2, ..., m−1
+# y_m-1 - 2y_m + y_m+1 - (h^2)*f(x_m, y_m, (y_m+1 - y_m-1/(2h))) = 0                                Equation c
+
+# Equation a becomes y_0 - a = 0 ; Equation c becomes y_m - d = 0
+# Due to this, the equations become ...
+
+# y_0 - c = 0, if y(a) = c
+# -2y_0 + 2y_1 - (h^2)*f(x_0, y_0, c) - 2hc = 0, if y'(a) = c
+
+# y_i-1 - 2y_i + y_i+1 - (h^2)*f(x_i, y_i, (y_i+1 - y_i-1/(2h))) = 0, i = 1, 2, ..., m-1
+
+# y_m - d = 0, if y(b) = d
+# 2y_m-1 - 2y_m - (h^2)*f(x_m, y_m, d) + 2hd = 0, if y'(b) = d
+
+''' Example:-
+    Solve the BVP: y'' = -4y + 4x, y(0) = 0, & y'(pi/2) = 0. Use m = 10 '''
+    
+# Here, c = y(0) = 0, d = y'(pi/2) = 0, and f (x, y, y') = −4y + 4x
+# So the equations are ...
+    
+# y_0 = 0
+# y_i-1 - 2*y_i + y_i+1 - (h^2)*(-4*y_i + 4*x_i) = 0, i = 1, 2, ..., m-1
+# 2*y_9 - 2*y_10 - (h^2)*(-4*y_10 + 4*x_10) = 0
+
+# The equations above can be re-written as ...
+
+# y_0 = 0
+# y_i-1 - 2*y_i + y_i+1 + 4*(h^2)*y_i = 4*(h^2)*x_i, i = 1, 2, ..., m-1
+# 2*y_9 - 2*y_10 + 4*(h^2)*y_10 = 4*(h^2)*x_10 
+
+# In matrix form, the lines above become ...
+
+# [[1       0                                                ]    [[y_0]       =    [[    0      ]
+#  [1   -2 + 4*(h^2)    1                                    ]     [y_1]             [4*(h^2)*x_1]
+#  [   ...            ...                  ...               ]     [...]             [   ...     ]
+#  [                    1       -2 + 4*(h^2)              1  ]     [y_9]             [4*(h^2)*x_9]
+#  [                                 2           -2 + 4*(h^2)]]    [y_10]]           [4*(h^2)*x_10]] 
+
+# The big matrix above (on the LHS of the inequality) is a tridiagonal coefficient matrix, so in the code we have to define 3 of its diagonals  
+# Note that in the big matrix above, the "empty cell" have a value of 0
+
+# The code to solve this problem is ...
+    
+from numpy import zeros, ones, array, arange
+import math
+
+def Finite_Difference_Equations(x, h, m):                 # Set up finite difference equations
+ 
+    d = ones(m + 1)*(-2.0 + 4.0*h*h)    # One of the diagonals of the big matrix (before the code), & it contains the -2.0 + 4.0*h*h terms 
+    c = ones(m)                         # Another diagonal of the big matrix (before the code)
+    e = ones(m)                         # Another diagonal of the big matrix (before the code)
+    # Note that we only need to define 3 diagonals for the big matrix (found before the code)
+    b = ones(m+1)*4.0*h*h*x    # Here, b is the matrix on the RHS of the inequality containing the deduced matrices (found before the code)
+    
+    d[0] = 1.0                 # The very first value at this diagonal is 1, and the rest of the values are -2.0 + 4.0*h*h
+    e[0] = 0.0                 # The very first value at this diagonal is 0, and the rest of the values are 1
+    b[0] = 0.0
+    c[m-1] = 2.0               # The "final" value at this diagonal is 2; however, the rest of the values are 1
+    return c, d, e, b
+    # Here, we are creating the matrix previousely mentioned 
+
+xStart = 0.0                # x at left end
+xStop = math.pi/2.0         # x at right end
+m = 10                      # Number of mesh spaces
+h = (xStop - xStart)/ m     # Remember this formula
+x = arange(xStart, xStop + h, h)
+c, d, e, b = Finite_Difference_Equations(x, h, m)
+# Now we use the LU decomposition algorithm to solve the matrix 
+c, d, e = LUdecomp3(c, d, e) 
+y = LUsolve3(c, d, e, b)
+
+print("\n     x             y")
+for i in range(m + 1):
+    print("%14.5e %14.5e" %(x[i], y[i])) 
+  
+# Important note: Shooting method yields more accurate results than Finite Difference method; however, the Finite Difference method can 
+# still be used to solve engineering problems, and its accuracy can be increased by increasing the value of m (creating more mesh points)
